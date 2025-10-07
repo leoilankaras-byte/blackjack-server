@@ -1,7 +1,6 @@
-// server.js
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
@@ -9,269 +8,283 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// Serve static frontend files from "public" folder
-app.use(express.static('public'));
+app.use(express.static("public")); // serve your frontend files from /public
 
-// Helper functions for deck and blackjack logic
-function createDeck() {
-  const suits = ['♠', '♥', '♦', '♣'];
-  const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-  const deck = [];
-  for (const suit of suits) {
-    for (const rank of ranks) {
-      deck.push({ suit, rank });
-    }
-  }
-  return deck;
-}
-
-function shuffle(deck) {
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-}
-
-function calculateScore(cards) {
-  let score = 0;
-  let aces = 0;
-  for (const card of cards) {
-    if (['J','Q','K'].includes(card.rank)) score += 10;
-    else if (card.rank === 'A') {
-      aces++;
-      score += 11;
-    } else {
-      score += parseInt(card.rank);
-    }
-  }
-  while (score > 21 && aces > 0) {
-    score -= 10;
-    aces--;
-  }
-  return score;
-}
-
-// Lobbies data: lobbyCode -> lobby object
+// In-memory lobbies store
 const lobbies = {};
 
+// Generate 6-character lobby code
 function generateLobbyCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let code = '';
-  for (let i=0; i<6; i++) {
-    code += chars.charAt(Math.floor(Math.random()*chars.length));
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
 }
 
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+// Create a fresh shuffled deck
+function createDeck() {
+  const suits = ["♠", "♥", "♦", "♣"];
+  const ranks = [
+    "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K",
+  ];
+  const deck = [];
+  for (const suit of suits) {
+    for (const rank of ranks) {
+      deck.push({ rank, suit });
+    }
+  }
+  // Shuffle deck
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
 
-  socket.on('createLobby', () => {
+// Calculate blackjack hand value
+function calculateHandValue(cards) {
+  let value = 0;
+  let aces = 0;
+
+  for (const card of cards) {
+    if (card.rank === "A") {
+      aces++;
+      value += 11;
+    } else if (["K", "Q", "J"].includes(card.rank)) {
+      value += 10;
+    } else {
+      value += Number(card.rank);
+    }
+  }
+
+  // Adjust for aces
+  while (value > 21 && aces > 0) {
+    value -= 10;
+    aces--;
+  }
+
+  return value;
+}
+
+// Start game: deal 2 cards per player and init game state
+function startGame(lobby) {
+  lobby.deck = createDeck();
+  lobby.currentTurnIndex = 0;
+  lobby.gameOver = false;
+
+  for (const playerId of lobby.players) {
+    lobby.hands[playerId] = [lobby.deck.pop(), lobby.deck.pop()];
+    lobby.stands[playerId] = false;
+  }
+}
+
+// Advance to next active player (not stood or busted), return playerId or null if none left
+function advanceTurn(lobby) {
+  let attempts = 0;
+  do {
+    lobby.currentTurnIndex =
+      (lobby.currentTurnIndex + 1) % lobby.players.length;
+    const currentPlayerId = lobby.players[lobby.currentTurnIndex];
+    const handValue = calculateHandValue(lobby.hands[currentPlayerId]);
+    if (!lobby.stands[currentPlayerId] && handValue <= 21) {
+      return currentPlayerId;
+    }
+    attempts++;
+  } while (attempts < lobby.players.length);
+  return null;
+}
+
+// Determine winner(s)
+function determineWinners(lobby) {
+  let bestScore = 0;
+  let winners = [];
+
+  for (const playerId of lobby.players) {
+    const val = calculateHandValue(lobby.hands[playerId]);
+    if (val <= 21) {
+      if (val > bestScore) {
+        bestScore = val;
+        winners = [playerId];
+      } else if (val === bestScore) {
+        winners.push(playerId);
+      }
+    }
+  }
+  return winners;
+}
+
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  socket.on("createLobby", () => {
     let code;
     do {
       code = generateLobbyCode();
     } while (lobbies[code]);
     lobbies[code] = {
-      players: [],
-      host: socket.id,
+      players: [socket.id],
+      hands: {},
+      stands: {},
       deck: [],
-      currentPlayerIndex: 0,
-      gameStarted: false,
+      currentTurnIndex: 0,
+      gameOver: false,
     };
     socket.join(code);
-    lobbies[code].players.push({
-      id: socket.id,
-      cards: [],
-      score: 0,
-      stood: false,
-      busted: false,
-    });
-    socket.emit('lobbyCreated', code);
-    io.to(code).emit('updatePlayers', lobbies[code].players.map(p => p.id));
+    socket.emit("lobbyCreated", code);
+    io.to(code).emit("updatePlayers", lobbies[code].players);
   });
 
-  socket.on('joinLobby', (code) => {
+  socket.on("joinLobby", (code) => {
     code = code.toUpperCase();
     const lobby = lobbies[code];
     if (!lobby) {
-      socket.emit('lobbyError', 'Lobby not found.');
+      socket.emit("lobbyError", "Lobby does not exist.");
       return;
     }
     if (lobby.players.length >= 8) {
-      socket.emit('lobbyError', 'Lobby full.');
+      socket.emit("lobbyError", "Lobby full.");
       return;
     }
-    if (lobby.gameStarted) {
-      socket.emit('lobbyError', 'Game already started.');
-      return;
-    }
+    lobby.players.push(socket.id);
     socket.join(code);
-    lobby.players.push({
-      id: socket.id,
-      cards: [],
-      score: 0,
-      stood: false,
-      busted: false,
-    });
-    socket.emit('lobbyJoined', code, lobby.players.map(p => p.id));
-    io.to(code).emit('updatePlayers', lobby.players.map(p => p.id));
+    socket.emit("lobbyJoined", code, lobby.players);
+    io.to(code).emit("updatePlayers", lobby.players);
   });
 
-  socket.on('startGame', (code) => {
-    const lobby = lobbies[code];
-    if (!lobby || lobby.host !== socket.id) return;
-
-    lobby.gameStarted = true;
-    lobby.deck = createDeck();
-    shuffle(lobby.deck);
-
-    // Deal 2 cards to each player
-    lobby.players.forEach(player => {
-      player.cards = [lobby.deck.pop(), lobby.deck.pop()];
-      player.score = calculateScore(player.cards);
-      player.stood = false;
-      player.busted = false;
-    });
-    lobby.currentPlayerIndex = 0;
-
-    io.to(code).emit('gameStarted', {
-      players: lobby.players.map(p => ({
-        id: p.id,
-        cards: p.cards,
-        score: p.score,
-        stood: p.stood,
-        busted: p.busted,
-      })),
-      currentPlayer: lobby.players[lobby.currentPlayerIndex].id,
-      revealFirstCard: false,
-    });
-  });
-
-  socket.on('hit', (code) => {
+  socket.on("startGame", (code) => {
     const lobby = lobbies[code];
     if (!lobby) return;
-    if (!lobby.gameStarted) return;
-
-    const player = lobby.players[lobby.currentPlayerIndex];
-    if (player.id !== socket.id) return; // Not this player's turn
-    if (player.stood || player.busted) return;
-
-    player.cards.push(lobby.deck.pop());
-    player.score = calculateScore(player.cards);
-    if (player.score > 21) {
-      player.busted = true;
+    if (lobby.players[0] !== socket.id) {
+      socket.emit("lobbyError", "Only host can start the game.");
+      return;
     }
-
-    io.to(code).emit('gameStateUpdate', {
-      players: lobby.players.map(p => ({
-        id: p.id,
-        cards: p.cards,
-        score: p.score,
-        stood: p.stood,
-        busted: p.busted,
-      })),
-      currentPlayer: player.id,
-      revealFirstCard: false,
-    });
-
-    if (player.busted) {
-      // Move turn to next player
-      nextTurn(lobby);
-    }
+    startGame(lobby);
+    // Emit game started with players and hands
+    const playersData = lobby.players.map((pid) => ({
+      id: pid,
+      cards: lobby.hands[pid],
+    }));
+    io.to(code).emit("gameStarted", { players: playersData, showAllCards: false });
+    // Tell first player to start turn
+    const currentPlayerId = lobby.players[lobby.currentTurnIndex];
+    io.to(code).emit("playerTurn", currentPlayerId);
   });
 
-  socket.on('stand', (code) => {
-    const lobby = lobbies[code];
-    if (!lobby) return;
-    if (!lobby.gameStarted) return;
+  socket.on("hit", ({ lobbyCode }) => {
+    const lobby = lobbies[lobbyCode];
+    if (!lobby || lobby.gameOver) return;
 
-    const player = lobby.players[lobby.currentPlayerIndex];
-    if (player.id !== socket.id) return; // Not this player's turn
-    player.stood = true;
+    if (lobby.players[lobby.currentTurnIndex] !== socket.id) {
+      socket.emit("lobbyError", "Not your turn.");
+      return;
+    }
 
-    io.to(code).emit('gameStateUpdate', {
-      players: lobby.players.map(p => ({
-        id: p.id,
-        cards: p.cards,
-        score: p.score,
-        stood: p.stood,
-        busted: p.busted,
-      })),
-      currentPlayer: player.id,
-      revealFirstCard: false,
-    });
+    const card = lobby.deck.pop();
+    lobby.hands[socket.id].push(card);
 
-    nextTurn(lobby);
-  });
-
-  function nextTurn(lobby) {
-    // Move to next player who is not busted or stood
-    let idx = lobby.currentPlayerIndex;
-    do {
-      idx = (idx + 1) % lobby.players.length;
-      const p = lobby.players[idx];
-      if (!p.stood && !p.busted) {
-        lobby.currentPlayerIndex = idx;
-        io.to(lobby.host).emit('hostTurn', p.id);
-        io.to(lobby.players[idx].id).emit('yourTurn');
-        io.to(lobby.players[idx].id).emit('playerTurn', p.id);
-        io.to(lobby.code).emit('playerTurn', p.id);
-        io.to(lobby.code).emit('gameStateUpdate', {
-          players: lobby.players.map(pl => ({
-            id: pl.id,
-            cards: pl.cards,
-            score: pl.score,
-            stood: pl.stood,
-            busted: pl.busted,
-          })),
-          currentPlayer: p.id,
-          revealFirstCard: false,
+    const handValue = calculateHandValue(lobby.hands[socket.id]);
+    // If bust, automatically stand for player
+    if (handValue > 21) {
+      lobby.stands[socket.id] = true;
+      // Advance turn to next player
+      const nextPlayerId = advanceTurn(lobby);
+      if (!nextPlayerId) {
+        // Game over
+        lobby.gameOver = true;
+        const winners = determineWinners(lobby);
+        const message = winners.length
+          ? `Winner(s): ${winners.map((w) => w.slice(0, 5)).join(", ")}`
+          : "No winners, all busted.";
+        io.to(lobbyCode).emit("gameOver", { message });
+        io.to(lobbyCode).emit("gameStateUpdate", {
+          players: lobby.players.map((pid) => ({ id: pid, cards: lobby.hands[pid] })),
+          showAllCards: true,
         });
         return;
       }
-    } while (idx !== lobby.currentPlayerIndex);
+      lobby.currentTurnIndex = lobby.players.indexOf(nextPlayerId);
+      io.to(lobbyCode).emit("playerTurn", nextPlayerId);
+    }
 
-    // All players either stood or busted — game over
-    endGame(lobby);
-  }
-
-  function endGame(lobby) {
-    lobby.gameStarted = false;
-
-    // Calculate winners
-    const results = lobby.players.map(p => {
-      if (p.busted) return { id: p.id, result: 'Busted' };
-      return { id: p.id, result: `Score: ${p.score}` };
+    // Send updated game state to all players
+    io.to(lobbyCode).emit("gameStateUpdate", {
+      players: lobby.players.map((pid) => ({ id: pid, cards: lobby.hands[pid] })),
+      showAllCards: false,
     });
+  });
 
-    io.to(lobby.code).emit('gameOver', results);
-  }
+  socket.on("stand", ({ lobbyCode }) => {
+    const lobby = lobbies[lobbyCode];
+    if (!lobby || lobby.gameOver) return;
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+    if (lobby.players[lobby.currentTurnIndex] !== socket.id) {
+      socket.emit("lobbyError", "Not your turn.");
+      return;
+    }
 
-    // Remove from any lobby they were in
-    for (const code in lobbies) {
-      const lobby = lobbies[code];
-      const idx = lobby.players.findIndex(p => p.id === socket.id);
-      if (idx !== -1) {
-        lobby.players.splice(idx, 1);
-        io.to(code).emit('updatePlayers', lobby.players.map(p => p.id));
+    lobby.stands[socket.id] = true;
+
+    // Advance turn
+    const nextPlayerId = advanceTurn(lobby);
+    if (!nextPlayerId) {
+      // Game over
+      lobby.gameOver = true;
+      const winners = determineWinners(lobby);
+      const message = winners.length
+        ? `Winner(s): ${winners.map((w) => w.slice(0, 5)).join(", ")}`
+        : "No winners, all busted.";
+      io.to(lobbyCode).emit("gameOver", { message });
+      io.to(lobbyCode).emit("gameStateUpdate", {
+        players: lobby.players.map((pid) => ({ id: pid, cards: lobby.hands[pid] })),
+        showAllCards: true,
+      });
+      return;
+    }
+    lobby.currentTurnIndex = lobby.players.indexOf(nextPlayerId);
+    io.to(lobbyCode).emit("playerTurn", nextPlayerId);
+
+    // Send updated game state to all players
+    io.to(lobbyCode).emit("gameStateUpdate", {
+      players: lobby.players.map((pid) => ({ id: pid, cards: lobby.hands[pid] })),
+      showAllCards: false,
+    });
+  });
+
+  socket.on("disconnecting", () => {
+    // Remove player from any lobby they were in
+    for (const code of socket.rooms) {
+      if (lobbies[code]) {
+        const lobby = lobbies[code];
+        lobby.players = lobby.players.filter((p) => p !== socket.id);
+        delete lobby.hands[socket.id];
+        delete lobby.stands[socket.id];
 
         // If lobby empty, delete it
         if (lobby.players.length === 0) {
           delete lobbies[code];
-        } else if (lobby.host === socket.id) {
-          // Host left, assign new host
-          lobby.host = lobby.players[0].id;
-          io.to(code).emit('lobbyHostChanged', lobby.host);
+        } else {
+          io.to(code).emit("updatePlayers", lobby.players);
+
+          // If current player left, advance turn
+          if (lobby.players[lobby.currentTurnIndex] === socket.id) {
+            const nextPlayerId = advanceTurn(lobby);
+            if (nextPlayerId) {
+              lobby.currentTurnIndex = lobby.players.indexOf(nextPlayerId);
+              io.to(code).emit("playerTurn", nextPlayerId);
+            }
+          }
         }
-        break;
       }
     }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
