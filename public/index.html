@@ -1,41 +1,37 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Blackjack Lobby</title>
-  <script src="/socket.io/socket.io.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Online Blackjack - No Dealer</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>🃏 Blackjack Lobby</h1>
-  <button onclick="createLobby()">Create Lobby</button>
-  <br><br>
-  <input id="lobbyCode" placeholder="Enter lobby code">
-  <button onclick="joinLobby()">Join Lobby</button>
+  <div id="container">
+    <h1>🃏 Online Blackjack (No Dealer) 🃏</h1>
 
-  <div id="status"></div>
+    <div id="lobbySection">
+      <button id="createLobbyBtn">Create Lobby</button>
+      <input type="text" id="joinLobbyInput" placeholder="Enter Lobby Code" maxlength="6" />
+      <button id="joinLobbyBtn">Join Lobby</button>
+      <p id="lobbyMessage"></p>
+    </div>
 
-  <script>
-    const socket = io();
+    <div id="gameSection" class="hidden">
+      <h2>Lobby: <span id="lobbyCode"></span></h2>
+      <div id="playersContainer"></div>
 
-    function createLobby() {
-      socket.emit('createLobby');
-    }
+      <div id="controls" class="hidden">
+        <button id="hitBtn">Hit</button>
+        <button id="standBtn">Stand</button>
+      </div>
 
-    function joinLobby() {
-      const code = document.getElementById('lobbyCode').value.trim().toUpperCase();
-      socket.emit('joinLobby', code);
-    }
+      <p id="turnMessage"></p>
+      <p id="gameResult"></p>
+    </div>
+  </div>
 
-    socket.on('lobbyCreated', (code) => {
-      document.getElementById('status').innerHTML = `✅ Lobby Created! Code: <strong>${code}</strong>`;
-    });
-
-    socket.on('startGame', (data) => {
-      document.getElementById('status').innerHTML = `🎮 Game started with players: ${data.players.join(', ')}`;
-    });
-
-    socket.on('errorMessage', (msg) => {
-      alert('❌ ' + msg);
-    });
-  </script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
