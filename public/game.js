@@ -1,5 +1,3 @@
-// game.js
-
 const socket = io();
 
 let lobbyCode = null;
@@ -110,6 +108,12 @@ function updatePlayers(lobbyPlayers) {
   });
 }
 
+// Convert card object or string to display string (e.g. "A♠")
+function cardToString(card) {
+  if (typeof card === "string") return card;
+  return `${card.rank}${card.suit}`;
+}
+
 // Setup the game UI after game starts
 function setupGameUI(gameData) {
   playersContainer.innerHTML = "";
@@ -125,26 +129,28 @@ function setupGameUI(gameData) {
 
     const cardsDiv = document.getElementById(`cards-${p.id}`);
     cardsDiv.innerHTML = "";
+
     p.cards.forEach((card, idx) => {
       const cardEl = document.createElement("div");
       cardEl.className = "card";
 
-      // Show your cards face up, others only show first card face down, rest face up
+      // Your cards shown face up, others show first card face down if gameData.showAllCards is false
       if (p.id === playerId) {
-        cardEl.textContent = card;
+        cardEl.textContent = cardToString(card);
       } else {
         if (idx === 0 && !gameData.showAllCards) {
           cardEl.classList.add("back");
           cardEl.textContent = "";
         } else {
-          cardEl.textContent = card;
+          cardEl.textContent = cardToString(card);
         }
       }
+
       cardsDiv.appendChild(cardEl);
     });
   });
 
-  // Hide controls by default (only shown on your turn)
+  // Hide controls by default, only show if it's your turn
   controls.style.display = "none";
 }
 
@@ -158,7 +164,7 @@ standBtn.onclick = () => {
   socket.emit("stand", { lobbyCode });
 };
 
-// Server tells who’s turn it is
+// Server tells whose turn it is
 socket.on("playerTurn", (currentPlayerId) => {
   if (currentPlayerId === playerId) {
     controls.style.display = "block";
