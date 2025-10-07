@@ -1,37 +1,213 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Online Blackjack - No Dealer</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Blackjack Multiplayer</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #023047;
+    color: #fff;
+    margin: 0;
+    padding: 0;
+  }
+  #lobbySection, #gameSection {
+    max-width: 600px;
+    margin: 20px auto;
+    background: #219ebc;
+    border-radius: 8px;
+    padding: 20px;
+  }
+  h2 {
+    margin-top: 0;
+  }
+  input, button {
+    font-size: 1em;
+    padding: 8px 12px;
+    margin: 5px 0;
+  }
+  button {
+    background: #fb8500;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #000;
+  }
+  button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+  .player {
+    border: 1px solid #fff;
+    border-radius: 6px;
+    margin: 10px 0;
+    padding: 8px;
+    background: #8ecae6;
+    color: #000;
+  }
+  .cards {
+    display: flex;
+    margin-top: 8px;
+  }
+  .card {
+    background: #fff;
+    color: #000;
+    border-radius: 6px;
+    width: 40px;
+    height: 60px;
+    margin-right: 6px;
+    text-align: center;
+    font-weight: bold;
+    position: relative;
+    user-select: none;
+  }
+  .card.red {
+    color: red;
+  }
+  .card.back {
+    background: #023047;
+    border: 2px solid #fff;
+  }
+  .top-left, .bottom-right {
+    position: absolute;
+    font-size: 12px;
+  }
+  .top-left {
+    top: 4px;
+    left: 6px;
+  }
+  .bottom-right {
+    bottom: 4px;
+    right: 6px;
+    transform: rotate(180deg);
+  }
+  #controls {
+    margin-top: 20px;
+  }
+  #turnMessage {
+    font-weight: bold;
+    margin-top: 10px;
+  }
+  #gameResult {
+    margin-top: 15px;
+    font-size: 1.2em;
+    color: #fb8500;
+  }
+</style>
 </head>
 <body>
-  <div id="container">
-    <h1>🃏 Online Blackjack (No Dealer) 🃏</h1>
 
-    <div id="lobbySection">
-      <button id="createLobbyBtn">Create Lobby</button>
-      <input type="text" id="joinLobbyInput" placeholder="Enter Lobby Code" maxlength="6" />
-      <button id="joinLobbyBtn">Join Lobby</button>
-      <p id="lobbyMessage"></p>
-    </div>
+<div id="lobbySection">
+  <h2>Multiplayer Blackjack Lobby</h2>
+  <button id="createLobbyBtn">Create Lobby</button>
+  <input id="joinLobbyInput" maxlength="6" placeholder="Lobby Code" />
+  <button id="joinLobbyBtn">Join Lobby</button>
+  <p id="lobbyMessage"></p>
 
-    <div id="gameSection" class="hidden">
-      <h2>Lobby: <span id="lobbyCode"></span></h2>
-      <div id="playersContainer"></div>
-
-      <div id="controls" class="hidden">
-        <button id="hitBtn">Hit</button>
-        <button id="standBtn">Stand</button>
-      </div>
-
-      <p id="turnMessage"></p>
-      <p id="gameResult"></p>
-    </div>
+  <div id="playersList" style="margin-top:20px;">
+    <h3>Players in Lobby:</h3>
+    <ul id="playersUl"></ul>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="game.js"></script>
+  <button id="startGameBtn" style="display:none; margin-top: 15px;">Start Game</button>
+</div>
+
+<div id="gameSection" style="display:none;">
+  <h2>Blackjack Game</h2>
+  <div id="playersContainer"></div>
+  <div id="turnMessage"></div>
+
+  <div id="controls" class="hidden">
+    <button id="hitBtn">Hit</button>
+    <button id="standBtn">Stand</button>
+  </div>
+
+  <div id="gameResult"></div>
+</div>
+
+<!-- Socket.io client -->
+<script src="/socket.io/socket.io.js"></script>
+<!-- Your game logic -->
+<script src="game.js"></script>
+
+<script>
+  // Host control: show Start Game only to lobby creator
+  let isHost = false;
+
+  const createLobbyBtn = document.getElementById("createLobbyBtn");
+  const joinLobbyBtn = document.getElementById("joinLobbyBtn");
+  const joinLobbyInput = document.getElementById("joinLobbyInput");
+  const lobbyMessage = document.getElementById("lobbyMessage");
+  const playersUl = document.getElementById("playersUl");
+  const startGameBtn = document.getElementById("startGameBtn");
+
+  const lobbySection = document.getElementById("lobbySection");
+  const gameSection = document.getElementById("gameSection");
+
+  const socket = io();
+
+  let currentLobby = null;
+  let playerId = null;
+  let players = [];
+
+  createLobbyBtn.onclick = () => {
+    socket.emit("createLobby");
+    lobbyMessage.textContent = "Creating lobby...";
+  };
+
+  joinLobbyBtn.onclick = () => {
+    const code = joinLobbyInput.value.trim().toUpperCase();
+    if (code.length !== 6) {
+      lobbyMessage.textContent = "Enter a valid 6-character lobby code.";
+      return;
+    }
+    socket.emit("joinLobby", code);
+    lobbyMessage.textContent = `Joining lobby ${code}...`;
+  };
+
+  startGameBtn.onclick = () => {
+    socket.emit("startGame", currentLobby);
+  };
+
+  socket.on("lobbyCreated", (code) => {
+    currentLobby = code;
+    playerId = socket.id;
+    isHost = true;
+    lobbyMessage.textContent = `Lobby created! Code: ${code}`;
+    updatePlayersList();
+    startGameBtn.style.display = "inline-block";
+  });
+
+  socket.on("lobbyJoined", (code, lobbyPlayers) => {
+    currentLobby = code;
+    playerId = socket.id;
+    isHost = false;
+    lobbyMessage.textContent = `Joined lobby ${code}`;
+    players = lobbyPlayers;
+    updatePlayersList();
+    startGameBtn.style.display = "none";
+  });
+
+  socket.on("updatePlayers", (lobbyPlayers) => {
+    players = lobbyPlayers;
+    updatePlayersList();
+  });
+
+  socket.on("gameStarted", (data) => {
+    lobbySection.style.display = "none";
+    gameSection.style.display = "block";
+  });
+
+  function updatePlayersList() {
+    playersUl.innerHTML = "";
+    players.forEach((p) => {
+      const li = document.createElement("li");
+      li.textContent = p === playerId ? "You" : `Player ${p.slice(0,5)}`;
+      playersUl.appendChild(li);
+    });
+  }
+</script>
+
 </body>
 </html>
