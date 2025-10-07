@@ -187,4 +187,8 @@ function updateTurnMessage() {
   }
   if (currentTurnPlayer === playerId) {
     turnMessage.textContent = "Your turn! Hit or Stand?";
-  } else
+  } else {
+    turnMessage.textContent = `Waiting for Player ${currentTurnPlayer.slice(0,5)}...`;
+  }
+}
+
