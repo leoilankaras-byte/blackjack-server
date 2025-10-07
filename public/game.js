@@ -1,3 +1,5 @@
+// game.js
+
 const socket = io();
 
 let lobbyCode = null;
@@ -24,14 +26,13 @@ const hitBtn = document.getElementById("hitBtn");
 const standBtn = document.getElementById("standBtn");
 const gameResult = document.getElementById("gameResult");
 
-let currentTurnPlayer = null;
-
-// Buttons handlers
+// Create Lobby
 createLobbyBtn.onclick = () => {
   socket.emit("createLobby");
   lobbyMessage.textContent = "Creating lobby...";
 };
 
+// Join Lobby
 joinLobbyBtn.onclick = () => {
   const code = joinLobbyInput.value.trim().toUpperCase();
   if (code.length !== 6) {
@@ -42,26 +43,19 @@ joinLobbyBtn.onclick = () => {
   lobbyMessage.textContent = `Joining lobby ${code}...`;
 };
 
+// Host starts game
 startGameBtn.onclick = () => {
   if (lobbyCode && isHost) {
     socket.emit("startGame", lobbyCode);
   }
 };
 
-hitBtn.onclick = () => {
-  socket.emit("hit", lobbyCode);
-};
-
-standBtn.onclick = () => {
-  socket.emit("stand", lobbyCode);
-};
-
-// Socket events
-
+// When connected, save your playerId
 socket.on("connect", () => {
   playerId = socket.id;
 });
 
+// Lobby created — you are host
 socket.on("lobbyCreated", (code) => {
   lobbyCode = code;
   isHost = true;
@@ -71,9 +65,9 @@ socket.on("lobbyCreated", (code) => {
   startGameBtn.style.display = "inline-block";
   lobbySection.style.display = "block";
   gameSection.style.display = "none";
-  gameResult.textContent = "";
 });
 
+// Lobby joined — you are not host
 socket.on("lobbyJoined", (code, lobbyPlayers) => {
   lobbyCode = code;
   isHost = false;
@@ -83,112 +77,106 @@ socket.on("lobbyJoined", (code, lobbyPlayers) => {
   startGameBtn.style.display = "none";
   lobbySection.style.display = "block";
   gameSection.style.display = "none";
-  gameResult.textContent = "";
 });
 
+// Update players list
 socket.on("updatePlayers", (lobbyPlayers) => {
   players = lobbyPlayers;
   updatePlayers(players);
 });
 
+// Lobby error
 socket.on("lobbyError", (msg) => {
   lobbyMessage.textContent = `Error: ${msg}`;
 });
 
+// Game started
 socket.on("gameStarted", (gameData) => {
   gameStarted = true;
   lobbySection.style.display = "none";
   gameSection.style.display = "block";
   gameResult.textContent = "";
-  turnMessage.textContent = "";
-
-  currentTurnPlayer = gameData.currentPlayer;
-
-  renderGame(gameData);
-  updateTurnMessage();
+  turnMessage.textContent = "Game has started!";
+  setupGameUI(gameData);
 });
 
-socket.on("gameStateUpdate", (gameData) => {
-  currentTurnPlayer = gameData.currentPlayer;
-  renderGame(gameData);
-  updateTurnMessage();
-});
-
-socket.on("gameOver", (results) => {
-  gameStarted = false;
-  controls.style.display = "none";
-
-  const yourResult = results.find(r => r.id === playerId);
-  if (!yourResult) {
-    gameResult.textContent = "Game ended.";
-  } else {
-    gameResult.textContent = `Game over! Your result: ${yourResult.result}`;
-  }
-  turnMessage.textContent = "";
-});
-
-// Helper functions
-
+// Update players list UI
 function updatePlayers(lobbyPlayers) {
   playersUl.innerHTML = "";
   lobbyPlayers.forEach((p) => {
     const li = document.createElement("li");
-    li.textContent = p === playerId ? "You" : `Player ${p.slice(0,5)}`;
+    li.textContent = p === playerId ? "You" : `Player ${p.slice(0, 5)}`;
     playersUl.appendChild(li);
   });
 }
 
-function renderGame(gameData) {
+// Setup the game UI after game starts
+function setupGameUI(gameData) {
   playersContainer.innerHTML = "";
-
-  gameData.players.forEach(player => {
+  gameData.players.forEach((p) => {
     const playerDiv = document.createElement("div");
     playerDiv.className = "player";
-    if (player.id === currentTurnPlayer) playerDiv.style.boxShadow = "0 0 15px 3px #ff0";
+    playerDiv.id = `player-${p.id}`;
 
-    const nameText = player.id === playerId ? "You" : `Player ${player.id.slice(0,5)}`;
-    playerDiv.innerHTML = `<h4>${nameText}</h4><div class="cards"></div><p>Score: ${player.stood || player.busted ? player.score : "?"}</p>`;
-
-    const cardsDiv = playerDiv.querySelector(".cards");
-
-    player.cards.forEach((card, idx) => {
-      const cardDiv = document.createElement("div");
-      cardDiv.className = "card";
-      if (player.id === playerId) {
-        // Show your cards face up
-        cardDiv.textContent = `${card.rank}${card.suit}`;
-      } else {
-        // Show only first card face down, rest face up for others
-        if (idx === 0) {
-          cardDiv.classList.add("back");
-          cardDiv.textContent = "";
-        } else {
-          cardDiv.textContent = `${card.rank}${card.suit}`;
-        }
-      }
-      cardsDiv.appendChild(cardDiv);
-    });
+    const nameText = p.id === playerId ? "You" : `Player ${p.id.slice(0, 5)}`;
+    playerDiv.innerHTML = `<h4>${nameText}</h4><div class="cards" id="cards-${p.id}"></div>`;
 
     playersContainer.appendChild(playerDiv);
+
+    const cardsDiv = document.getElementById(`cards-${p.id}`);
+    cardsDiv.innerHTML = "";
+    p.cards.forEach((card, idx) => {
+      const cardEl = document.createElement("div");
+      cardEl.className = "card";
+
+      // Show your cards face up, others only show first card face down, rest face up
+      if (p.id === playerId) {
+        cardEl.textContent = card;
+      } else {
+        if (idx === 0 && !gameData.showAllCards) {
+          cardEl.classList.add("back");
+          cardEl.textContent = "";
+        } else {
+          cardEl.textContent = card;
+        }
+      }
+      cardsDiv.appendChild(cardEl);
+    });
   });
 
-  // Show controls only if it's your turn and game is active
-  if (gameStarted && currentTurnPlayer === playerId) {
+  // Hide controls by default (only shown on your turn)
+  controls.style.display = "none";
+}
+
+// Hit button
+hitBtn.onclick = () => {
+  socket.emit("hit", { lobbyCode });
+};
+
+// Stand button
+standBtn.onclick = () => {
+  socket.emit("stand", { lobbyCode });
+};
+
+// Server tells who’s turn it is
+socket.on("playerTurn", (currentPlayerId) => {
+  if (currentPlayerId === playerId) {
     controls.style.display = "block";
+    turnMessage.textContent = "Your turn!";
   } else {
     controls.style.display = "none";
+    turnMessage.textContent = `Waiting for Player ${currentPlayerId.slice(0, 5)}...`;
   }
-}
+});
 
-function updateTurnMessage() {
-  if (!gameStarted) {
-    turnMessage.textContent = "";
-    return;
-  }
-  if (currentTurnPlayer === playerId) {
-    turnMessage.textContent = "Your turn! Hit or Stand?";
-  } else {
-    turnMessage.textContent = `Waiting for Player ${currentTurnPlayer.slice(0,5)}...`;
-  }
-}
+// Update game state with new cards and info
+socket.on("gameStateUpdate", (gameData) => {
+  setupGameUI(gameData);
+});
 
+// Show game over message
+socket.on("gameOver", (resultData) => {
+  controls.style.display = "none";
+  turnMessage.textContent = "Game over!";
+  gameResult.textContent = resultData.message;
+});
