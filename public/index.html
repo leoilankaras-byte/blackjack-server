@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Blackjack Lobby</title>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <h1>🃏 Blackjack Lobby</h1>
+  <button onclick="createLobby()">Create Lobby</button>
+  <br><br>
+  <input id="lobbyCode" placeholder="Enter lobby code">
+  <button onclick="joinLobby()">Join Lobby</button>
+
+  <div id="status"></div>
+
+  <script>
+    const socket = io();
+
+    function createLobby() {
+      socket.emit('createLobby');
+    }
+
+    function joinLobby() {
+      const code = document.getElementById('lobbyCode').value.trim().toUpperCase();
+      socket.emit('joinLobby', code);
+    }
+
+    socket.on('lobbyCreated', (code) => {
+      document.getElementById('status').innerHTML = `✅ Lobby Created! Code: <strong>${code}</strong>`;
+    });
+
+    socket.on('startGame', (data) => {
+      document.getElementById('status').innerHTML = `🎮 Game started with players: ${data.players.join(', ')}`;
+    });
+
+    socket.on('errorMessage', (msg) => {
+      alert('❌ ' + msg);
+    });
+  </script>
+</body>
+</html>
