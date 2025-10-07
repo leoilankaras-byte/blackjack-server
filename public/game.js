@@ -154,4 +154,112 @@ standBtn.onclick = () => {
 };
 
 // TODO: Add socket listeners for hit/stand results, game updates, turns, etc.
+// Listen for game state updates from server
+socket.on("gameStateUpdate", (gameData) => {
+  updateGameUI(gameData);
+});
+
+// Listen for turn updates
+socket.on("playerTurn", (currentPlayerId) => {
+  if (currentPlayerId === playerId) {
+    turnMessage.textContent = "Your turn! Choose to Hit or Stand.";
+    controls.style.display = "block";
+  } else {
+    turnMessage.textContent = `Waiting for Player ${currentPlayerId.slice(0,5)}...`;
+    controls.style.display = "none";
+  }
+});
+
+// Listen for game over event
+socket.on("gameOver", (results) => {
+  controls.style.display = "none";
+  turnMessage.textContent = "Game Over!";
+  displayResults(results);
+});
+
+// Update the cards and player UI on every update
+function updateGameUI(gameData) {
+  playersContainer.innerHTML = "";
+
+  gameData.players.forEach((player) => {
+    const playerDiv = document.createElement("div");
+    playerDiv.className = "player";
+    playerDiv.id = `player-${player.id}`;
+
+    const nameText = player.id === playerId ? "You" : `Player ${player.id.slice(0,5)}`;
+    playerDiv.innerHTML = `<h4>${nameText}</h4><div class="cards" id="cards-${player.id}"></div><div class="score">Score: ${player.score}</div>`;
+
+    playersContainer.appendChild(playerDiv);
+
+    const cardsDiv = playerDiv.querySelector(`#cards-${player.id}`);
+
+    player.cards.forEach((card, index) => {
+      if (player.id === playerId) {
+        // Your cards are face-up (except maybe first card face-down if you want)
+        // Example: show first card face-down, others face-up
+        if (index === 0 && !gameData.revealFirstCard) {
+          cardsDiv.innerHTML += `<div class="card back"></div>`;
+        } else {
+          cardsDiv.innerHTML += `<div class="card">${card.rank}${card.suit}</div>`;
+        }
+      } else {
+        // Other players' cards: all face-up for now
+        cardsDiv.innerHTML += `<div class="card">${card.rank}${card.suit}</div>`;
+      }
+    });
+  });
+}
+
+// Display game results
+function displayResults(results) {
+  let resultText = "";
+  results.forEach((res) => {
+    const playerName = res.id === playerId ? "You" : `Player ${res.id.slice(0,5)}`;
+    resultText += `${playerName}: ${res.result}\n`;
+  });
+  gameResult.textContent = resultText;
+}
+function updateGameUI(gameData) {
+  playersContainer.innerHTML = "";
+
+  gameData.players.forEach((player) => {
+    const playerDiv = document.createElement("div");
+    playerDiv.className = "player";
+    playerDiv.id = `player-${player.id}`;
+
+    const nameText = player.id === playerId ? "You" : `Player ${player.id.slice(0,5)}`;
+    playerDiv.innerHTML = `
+      <h4>${nameText}</h4>
+      <div class="cards" id="cards-${player.id}"></div>
+      <div class="score">Score: ${player.score}</div>
+    `;
+
+    playersContainer.appendChild(playerDiv);
+
+    const cardsDiv = playerDiv.querySelector(`#cards-${player.id}`);
+
+    player.cards.forEach((card, index) => {
+      if (player.id === playerId) {
+        // Your cards: first card face-down if not revealed, others face-up
+        if (index === 0 && !gameData.revealFirstCard) {
+          cardsDiv.innerHTML += `<div class="card back"></div>`;
+        } else {
+          cardsDiv.innerHTML += `<div class="card">${card.rank}${card.suit}</div>`;
+        }
+      } else {
+        // Other players’ cards: all face-up
+        cardsDiv.innerHTML += `<div class="card">${card.rank}${card.suit}</div>`;
+      }
+    });
+  });
+}
+
+function displayResults(results) {
+  let resultText = "";
+  results.forEach((res) => {
+    const playerName = res.id === playerId ? "You" : `Player ${res.id.slice(0,5)}`;
+    resultText += `${playerName}: ${res.result}\n`;
+  });
+  gameResult.textContent = resultText;
+}
 
