@@ -2,33 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Online Blackjack</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <h1>Online Blackjack</h1>
 
   <section id="lobbySection">
+    <input type="text" id="nameInput" placeholder="Enter your name" />
+    <br /><br />
     <button id="createLobbyBtn">Create Lobby</button>
-    <input id="joinLobbyInput" maxlength="6" placeholder="Lobby Code (6 letters)" />
+    <br /><br />
+    <input type="text" id="joinLobbyInput" placeholder="Enter Lobby Code" />
     <button id="joinLobbyBtn">Join Lobby</button>
     <p id="lobbyMessage"></p>
     <ul id="playersUl"></ul>
-    <button id="startGameBtn" style="display:none;">Start Game</button>
+    <button id="startGameBtn" style="display: none;">Start Game</button>
   </section>
 
-  <section id="gameSection" style="display:none;">
+  <section id="gameSection" style="display: none;">
+    <div id="turnMessage"></div>
     <div id="playersContainer"></div>
-    <p id="turnMessage"></p>
-    <div id="controls" style="display:none;">
+    <div id="controls" style="display: none;">
       <button id="hitBtn">Hit</button>
       <button id="standBtn">Stand</button>
     </div>
-    <p id="gameResult"></p>
+    <div id="gameResult"></div>
   </section>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
-
