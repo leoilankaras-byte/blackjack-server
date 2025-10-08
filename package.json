@@ -1,13 +1,17 @@
 {
-  "name": "blackjack-game",
+  "name": "blackjack-multiplayer",
   "version": "1.0.0",
+  "description": "Multiplayer Blackjack game with websockets",
   "main": "server.js",
-  "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "nanoid": "^5.0.2"   // ✅ This line must be here
-  },
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "nanoid": "^5.0.2",
+    "socket.io": "^4.7.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
