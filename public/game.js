@@ -5,6 +5,7 @@ let playerId = null;
 let players = [];
 let isHost = false;
 let gameStarted = false;
+let currentPlayerTurn = null;
 
 // DOM elements
 const createLobbyBtn = document.getElementById("createLobbyBtn");
@@ -24,13 +25,13 @@ const hitBtn = document.getElementById("hitBtn");
 const standBtn = document.getElementById("standBtn");
 const gameResult = document.getElementById("gameResult");
 
-// Create Lobby
+// === LOBBY CONTROLS ===
+
 createLobbyBtn.onclick = () => {
   socket.emit("createLobby");
   lobbyMessage.textContent = "Creating lobby...";
 };
 
-// Join Lobby
 joinLobbyBtn.onclick = () => {
   const code = joinLobbyInput.value.trim().toUpperCase();
   if (code.length !== 6) {
@@ -41,19 +42,18 @@ joinLobbyBtn.onclick = () => {
   lobbyMessage.textContent = `Joining lobby ${code}...`;
 };
 
-// Host starts game
 startGameBtn.onclick = () => {
   if (lobbyCode && isHost) {
     socket.emit("startGame", lobbyCode);
   }
 };
 
-// When connected, save your playerId
+// === SOCKET EVENTS ===
+
 socket.on("connect", () => {
   playerId = socket.id;
 });
 
-// Lobby created — you are host
 socket.on("lobbyCreated", (code) => {
   lobbyCode = code;
   isHost = true;
@@ -65,7 +65,6 @@ socket.on("lobbyCreated", (code) => {
   gameSection.style.display = "none";
 });
 
-// Lobby joined — you are not host
 socket.on("lobbyJoined", (code, lobbyPlayers) => {
   lobbyCode = code;
   isHost = false;
@@ -77,28 +76,47 @@ socket.on("lobbyJoined", (code, lobbyPlayers) => {
   gameSection.style.display = "none";
 });
 
-// Update players list
 socket.on("updatePlayers", (lobbyPlayers) => {
   players = lobbyPlayers;
   updatePlayers(players);
 });
 
-// Lobby error
 socket.on("lobbyError", (msg) => {
   lobbyMessage.textContent = `Error: ${msg}`;
 });
 
-// Game started
 socket.on("gameStarted", (gameData) => {
   gameStarted = true;
   lobbySection.style.display = "none";
   gameSection.style.display = "block";
   gameResult.textContent = "";
   turnMessage.textContent = "Game has started!";
-  setupGameUI(gameData);
+  updateGameUI(gameData);
 });
 
-// Update players list UI
+socket.on("playerTurn", (currentPlayerId) => {
+  currentPlayerTurn = currentPlayerId;
+  if (currentPlayerId === playerId) {
+    turnMessage.textContent = "Your turn! Hit or Stand.";
+    controls.style.display = "block";
+  } else {
+    turnMessage.textContent = `Waiting for Player ${currentPlayerId.slice(0, 5)} to play...`;
+    controls.style.display = "none";
+  }
+});
+
+socket.on("gameStateUpdate", (gameData) => {
+  updateGameUI(gameData);
+});
+
+socket.on("gameOver", (result) => {
+  turnMessage.textContent = "";
+  controls.style.display = "none";
+  gameResult.textContent = result.message;
+});
+
+// === UI HELPERS ===
+
 function updatePlayers(lobbyPlayers) {
   playersUl.innerHTML = "";
   lobbyPlayers.forEach((p) => {
@@ -108,81 +126,37 @@ function updatePlayers(lobbyPlayers) {
   });
 }
 
-// Convert card object or string to display string (e.g. "A♠")
-function cardToString(card) {
-  if (typeof card === "string") return card;
-  return `${card.rank}${card.suit}`;
-}
-
-// Setup the game UI after game starts
-function setupGameUI(gameData) {
+function updateGameUI(gameData) {
   playersContainer.innerHTML = "";
-  gameData.players.forEach((p) => {
-    const playerDiv = document.createElement("div");
-    playerDiv.className = "player";
-    playerDiv.id = `player-${p.id}`;
 
-    const nameText = p.id === playerId ? "You" : `Player ${p.id.slice(0, 5)}`;
-    playerDiv.innerHTML = `<h4>${nameText}</h4><div class="cards" id="cards-${p.id}"></div>`;
+  gameData.players.forEach((player) => {
+    const div = document.createElement("div");
+    div.className = "player";
+    div.id = `player-${player.id}`;
+    const name = player.id === playerId ? "You" : `Player ${player.id.slice(0, 5)}`;
 
-    playersContainer.appendChild(playerDiv);
-
-    const cardsDiv = document.getElementById(`cards-${p.id}`);
-    cardsDiv.innerHTML = "";
-
-    p.cards.forEach((card, idx) => {
-      const cardEl = document.createElement("div");
-      cardEl.className = "card";
-
-      // Your cards shown face up, others show first card face down if gameData.showAllCards is false
-      if (p.id === playerId) {
-        cardEl.textContent = cardToString(card);
-      } else {
-        if (idx === 0 && !gameData.showAllCards) {
-          cardEl.classList.add("back");
-          cardEl.textContent = "";
+    const cardsHtml = player.cards
+      .map((card, idx) => {
+        // Only show your cards or all cards if game is over
+        if (player.id === playerId || gameData.showAllCards) {
+          return `<div class="card">${card.rank}${card.suit}</div>`;
         } else {
-          cardEl.textContent = cardToString(card);
+          return `<div class="card back">🂠</div>`;
         }
-      }
+      })
+      .join("");
 
-      cardsDiv.appendChild(cardEl);
-    });
+    div.innerHTML = `<h4>${name}</h4><div class="cards">${cardsHtml}</div>`;
+    playersContainer.appendChild(div);
   });
-
-  // Hide controls by default, only show if it's your turn
-  controls.style.display = "none";
 }
 
-// Hit button
+// === BUTTON EVENTS ===
+
 hitBtn.onclick = () => {
   socket.emit("hit", { lobbyCode });
 };
 
-// Stand button
 standBtn.onclick = () => {
   socket.emit("stand", { lobbyCode });
 };
-
-// Server tells whose turn it is
-socket.on("playerTurn", (currentPlayerId) => {
-  if (currentPlayerId === playerId) {
-    controls.style.display = "block";
-    turnMessage.textContent = "Your turn!";
-  } else {
-    controls.style.display = "none";
-    turnMessage.textContent = `Waiting for Player ${currentPlayerId.slice(0, 5)}...`;
-  }
-});
-
-// Update game state with new cards and info
-socket.on("gameStateUpdate", (gameData) => {
-  setupGameUI(gameData);
-});
-
-// Show game over message
-socket.on("gameOver", (resultData) => {
-  controls.style.display = "none";
-  turnMessage.textContent = "Game over!";
-  gameResult.textContent = resultData.message;
-});
