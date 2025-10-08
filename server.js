@@ -1,7 +1,15 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const { nanoid } = require("nanoid");
+function nanoid(length = 6) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 
 const app = express();
 const server = http.createServer(app);
