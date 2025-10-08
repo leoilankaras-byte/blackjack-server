@@ -135,16 +135,22 @@ function updateGameUI(gameData) {
     div.id = `player-${player.id}`;
     const name = player.id === playerId ? "You" : `Player ${player.id.slice(0, 5)}`;
 
-    const cardsHtml = player.cards
-      .map((card, idx) => {
-        // Only show your cards or all cards if game is over
-        if (player.id === playerId || gameData.showAllCards) {
-          return `<div class="card">${card.rank}${card.suit}</div>`;
-        } else {
-          return `<div class="card back">🂠</div>`;
-        }
-      })
-      .join("");
+const cardsHtml = player.cards
+  .map((card, idx) => {
+    // Show all your cards or all cards if game is over
+    if (player.id === playerId || gameData.showAllCards) {
+      return `<div class="card">${card.rank}${card.suit}</div>`;
+    }
+
+    // For other players, hide only the first card
+    if (idx === 0) {
+      return `<div class="card back">🂠</div>`;
+    } else {
+      return `<div class="card">${card.rank}${card.suit}</div>`;
+    }
+  })
+  .join("");
+
 
     div.innerHTML = `<h4>${name}</h4><div class="cards">${cardsHtml}</div>`;
     playersContainer.appendChild(div);
