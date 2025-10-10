@@ -1,116 +1,148 @@
+/* === GLOBAL STYLES === */
 body {
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #007acc, #00d1ff);
-  color: white;
-  text-align: center;
   margin: 0;
-  padding: 1rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(to bottom right, #0f2027, #203a43, #2c5364);
+  color: #f0f0f0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-h1 {
-  margin-bottom: 1rem;
-}
-
-#playersUl {
-  list-style: none;
-  padding: 0;
-  margin-top: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.player {
-  display: inline-block;
-  background: #004a75;
-  margin: 1rem;
-  padding: 1rem;
-  border-radius: 12px;
-  width: 150px;
-  box-shadow: 0 0 10px #00cfff;
-}
-
-.cards {
-  display: flex;
-  justify-content: center;
-  margin-top: 0.5rem;
-}
-
-.card {
-  width: 50px;
-  height: 70px;
-  border-radius: 6px;
-  background: white;
-  color: black;
-  border: 2px solid #222;
-  margin: 0 5px;
-  font-weight: bold;
-  font-size: 1.2rem;
-  line-height: 70px;
+h1, h4 {
   text-align: center;
-  position: relative;
-  user-select: none;
-  transition: transform 0.3s ease;
-  cursor: default;
+  margin: 10px 0;
 }
 
-.card.back {
-  background: linear-gradient(135deg, #444, #111);
-  border-color: #222;
-  cursor: default;
+button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #00b894;
+  color: white;
+  cursor: pointer;
+  transition: background 0.3s;
 }
 
-.card.back::after {
-  content: "";
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: repeating-linear-gradient(
-    45deg,
-    #555,
-    #555 10px,
-    #666 10px,
-    #666 20px
-  );
-  border-radius: 6px;
-  position: absolute;
-  top: 0;
-  left: 0;
-  opacity: 0.8;
+button:hover {
+  background-color: #019875;
+}
+
+input {
+  padding: 10px;
+  font-size: 1rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  margin-right: 10px;
+}
+
+/* === LAYOUT SECTIONS === */
+#lobbySection,
+#gameSection {
+  margin-top: 40px;
+  width: 90%;
+  max-width: 1000px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+/* === PLAYER DISPLAY === */
+.player {
+  margin: 20px 10px;
+  padding: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  flex: 1;
+  min-width: 200px;
+  text-align: center;
 }
 
 #playersContainer {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+/* === CARD STYLING === */
+.cards {
+  display: flex;
   justify-content: center;
   flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
 }
 
-button {
-  background-color: #0099ff;
-  border: none;
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  margin: 0.25rem;
-  transition: background-color 0.3s ease;
-}
-
-button:hover {
-  background-color: #007acc;
-}
-
-#turnMessage {
+.card {
+  width: 60px;
+  height: 90px;
+  background-color: white;
+  border: 2px solid #333;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   font-size: 1.2rem;
-  margin-top: 1rem;
+  font-weight: bold;
+  color: #2c3e50;
+  position: relative;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  transition: transform 0.3s ease;
+}
+
+.card:hover {
+  transform: scale(1.1);
+}
+
+/* Card back design */
+.card.back {
+  background: repeating-linear-gradient(
+    45deg,
+    #34495e,
+    #34495e 10px,
+    #2c3e50 10px,
+    #2c3e50 20px
+  );
+  color: transparent;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.7);
+}
+
+/* === MESSAGES & RESULTS === */
+#turnMessage {
+  margin-top: 20px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #f1c40f;
 }
 
 #gameResult {
-  font-size: 1.3rem;
-  margin-top: 1rem;
+  margin-top: 20px;
+  font-size: 1.5rem;
   font-weight: bold;
+  color: #00cec9;
 }
 
+/* === PLAYER LIST IN LOBBY === */
+#playersUl {
+  list-style: none;
+  padding: 0;
+  margin-top: 10px;
+}
+
+#playersUl li {
+  padding: 5px 0;
+  font-size: 1rem;
+}
+
+/* === CONTROL BUTTONS === */
+#controls {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
