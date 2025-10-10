@@ -46,15 +46,16 @@ function shuffle(array) {
 io.on("connection", (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
-  socket.on("createLobby", ({ name }) => {
-    const code = nanoid(6).toUpperCase();
-    lobbies[code] = {
-      hostId: socket.id,
-      players: [],
-      deck: [],
-      currentPlayerIndex: 0,
-      inGame: false,
-    };
+ socket.on("createLobby", (data) => {
+  if (!data || !data.name) {
+    socket.emit("lobbyError", "Name is required to create a lobby.");
+    return;
+  }
+  const { name } = data;
+  
+  // your createLobby logic here
+});
+
 
     const player = {
       id: socket.id,
