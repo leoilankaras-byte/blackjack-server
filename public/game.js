@@ -126,6 +126,9 @@ socket.on("gameOver", (result) => {
   turnMessage.textContent = "";
   controls.style.display = "none";
   gameResult.textContent = result.message;
+
+  // ✅ Show "Play Again" button
+  replayButton.style.display = "block";
 });
 
 // === UI HELPERS ===
