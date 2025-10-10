@@ -5,10 +5,8 @@ let playerId = null;
 let players = [];
 let isHost = false;
 let gameStarted = false;
-let currentPlayerTurn = null;
 
 // DOM elements
-const nameInput = document.getElementById("nameInput");
 const createLobbyBtn = document.getElementById("createLobbyBtn");
 const joinLobbyBtn = document.getElementById("joinLobbyBtn");
 const joinLobbyInput = document.getElementById("joinLobbyInput");
@@ -25,33 +23,22 @@ const controls = document.getElementById("controls");
 const hitBtn = document.getElementById("hitBtn");
 const standBtn = document.getElementById("standBtn");
 const gameResult = document.getElementById("gameResult");
-const replayButton = document.getElementById("replay-button");
 
+let currentTurnPlayer = null;
 
-// === LOBBY CONTROLS ===
-
+// Buttons handlers
 createLobbyBtn.onclick = () => {
-  const name = nameInput.value.trim();
-  if (!name) {
-    lobbyMessage.textContent = "Please enter your name.";
-    return;
-  }
-  socket.emit("createLobby", { name });
+  socket.emit("createLobby");
   lobbyMessage.textContent = "Creating lobby...";
 };
 
 joinLobbyBtn.onclick = () => {
   const code = joinLobbyInput.value.trim().toUpperCase();
-  const name = nameInput.value.trim();
   if (code.length !== 6) {
     lobbyMessage.textContent = "Enter a valid 6-character lobby code.";
     return;
   }
-  if (!name) {
-    lobbyMessage.textContent = "Please enter your name.";
-    return;
-  }
-  socket.emit("joinLobby", { code, name });
+  socket.emit("joinLobby", code);
   lobbyMessage.textContent = `Joining lobby ${code}...`;
 };
 
@@ -61,7 +48,15 @@ startGameBtn.onclick = () => {
   }
 };
 
-// === SOCKET EVENTS ===
+hitBtn.onclick = () => {
+  socket.emit("hit", lobbyCode);
+};
+
+standBtn.onclick = () => {
+  socket.emit("stand", lobbyCode);
+};
+
+// Socket events
 
 socket.on("connect", () => {
   playerId = socket.id;
@@ -76,6 +71,7 @@ socket.on("lobbyCreated", (code) => {
   startGameBtn.style.display = "inline-block";
   lobbySection.style.display = "block";
   gameSection.style.display = "none";
+  gameResult.textContent = "";
 });
 
 socket.on("lobbyJoined", (code, lobbyPlayers) => {
@@ -87,6 +83,7 @@ socket.on("lobbyJoined", (code, lobbyPlayers) => {
   startGameBtn.style.display = "none";
   lobbySection.style.display = "block";
   gameSection.style.display = "none";
+  gameResult.textContent = "";
 });
 
 socket.on("updatePlayers", (lobbyPlayers) => {
@@ -103,98 +100,94 @@ socket.on("gameStarted", (gameData) => {
   lobbySection.style.display = "none";
   gameSection.style.display = "block";
   gameResult.textContent = "";
-  turnMessage.textContent = "Game has started!";
-  updateGameUI(gameData);
-});
+  turnMessage.textContent = "";
 
-socket.on("playerTurn", (currentPlayerId) => {
-  currentPlayerTurn = currentPlayerId;
-  if (currentPlayerId === playerId) {
-    turnMessage.textContent = "Your turn! Hit or Stand.";
-    controls.style.display = "block";
-  } else {
-    turnMessage.textContent = `Waiting for ${getPlayerName(currentPlayerId)} to play...`;
-    controls.style.display = "none";
-  }
+  currentTurnPlayer = gameData.currentPlayer;
+
+  renderGame(gameData);
+  updateTurnMessage();
 });
 
 socket.on("gameStateUpdate", (gameData) => {
-  updateGameUI(gameData);
+  currentTurnPlayer = gameData.currentPlayer;
+  renderGame(gameData);
+  updateTurnMessage();
 });
 
-socket.on("gameOver", (result) => {
-  turnMessage.textContent = "";
+socket.on("gameOver", (results) => {
+  gameStarted = false;
   controls.style.display = "none";
-  gameResult.textContent = result.message;
 
-  // ✅ Show "Play Again" button
-  replayButton.style.display = "block";
+  const yourResult = results.find(r => r.id === playerId);
+  if (!yourResult) {
+    gameResult.textContent = "Game ended.";
+  } else {
+    gameResult.textContent = `Game over! Your result: ${yourResult.result}`;
+  }
+  turnMessage.textContent = "";
 });
 
-// === UI HELPERS ===
+// Helper functions
 
 function updatePlayers(lobbyPlayers) {
   playersUl.innerHTML = "";
-  players = lobbyPlayers;
   lobbyPlayers.forEach((p) => {
     const li = document.createElement("li");
-    li.textContent = p.id === playerId ? `${p.name} (You)` : p.name;
+    li.textContent = p === playerId ? "You" : `Player ${p.slice(0,5)}`;
     playersUl.appendChild(li);
   });
 }
 
-function updateGameUI(gameData) {
+function renderGame(gameData) {
   playersContainer.innerHTML = "";
-  players = gameData.players;
 
-  gameData.players.forEach((player) => {
-    const div = document.createElement("div");
-    div.className = "player";
-    div.id = `player-${player.id}`;
-    const name = player.id === playerId ? `${player.name} (You)` : player.name;
+  gameData.players.forEach(player => {
+    const playerDiv = document.createElement("div");
+    playerDiv.className = "player";
+    if (player.id === currentTurnPlayer) playerDiv.style.boxShadow = "0 0 15px 3px #ff0";
 
-    const cardsHtml = player.cards
-      .map((card, idx) => {
-        if (player.id === playerId || gameData.showAllCards) {
-          return `<div class="card">${card.rank}${card.suit}</div>`;
-        }
+    const nameText = player.id === playerId ? "You" : `Player ${player.id.slice(0,5)}`;
+    playerDiv.innerHTML = `<h4>${nameText}</h4><div class="cards"></div><p>Score: ${player.stood || player.busted ? player.score : "?"}</p>`;
+
+    const cardsDiv = playerDiv.querySelector(".cards");
+
+    player.cards.forEach((card, idx) => {
+      const cardDiv = document.createElement("div");
+      cardDiv.className = "card";
+      if (player.id === playerId) {
+        // Show your cards face up
+        cardDiv.textContent = `${card.rank}${card.suit}`;
+      } else {
+        // Show only first card face down, rest face up for others
         if (idx === 0) {
-          return `<div class="card back">🂠</div>`;
+          cardDiv.classList.add("back");
+          cardDiv.textContent = "";
         } else {
-          return `<div class="card">${card.rank}${card.suit}</div>`;
+          cardDiv.textContent = `${card.rank}${card.suit}`;
         }
-      })
-      .join("");
+      }
+      cardsDiv.appendChild(cardDiv);
+    });
 
-    div.innerHTML = `<h4>${name}</h4><div class="cards">${cardsHtml}</div>`;
-    playersContainer.appendChild(div);
+    playersContainer.appendChild(playerDiv);
   });
-}
 
-function getPlayerName(id) {
-  const player = players.find((p) => p.id === id);
-  return player ? player.name : `Player ${id.slice(0, 5)}`;
-}
-
-// === BUTTON EVENTS ===
-
-hitBtn.onclick = () => {
-  socket.emit("hit", { lobbyCode });
-};
-
-standBtn.onclick = () => {
-  socket.emit("stand", { lobbyCode });
-};// ✅ Replay button logic
-replayButton.addEventListener("click", () => {
-  replayButton.style.display = "none";
-
-  // Clear UI
-  playersContainer.innerHTML = "";
-  turnMessage.textContent = "";
-  gameResult.textContent = "";
-
-  if (lobbyCode) {
-    socket.emit("startGame", lobbyCode);
+  // Show controls only if it's your turn and game is active
+  if (gameStarted && currentTurnPlayer === playerId) {
+    controls.style.display = "block";
+  } else {
+    controls.style.display = "none";
   }
-});
+}
 
+function updateTurnMessage() {
+  if (!gameStarted) {
+    turnMessage.textContent = "";
+    return;
+  }
+  if (currentTurnPlayer === playerId) {
+    turnMessage.textContent = "Your turn! Hit or Stand?";
+  } else {
+    turnMessage.textContent = `Waiting for Player ${currentTurnPlayer.slice(0,5)}...`;
+  }
+}
