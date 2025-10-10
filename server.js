@@ -55,6 +55,21 @@ io.on("connection", (socket) => {
       currentPlayerIndex: 0,
       inGame: false,
     };
+    // existing logic...
+  });
+
+  socket.on("joinLobby", ({ code, name }) => {
+    // existing logic...
+  });
+
+  // Add this listener here:
+  socket.on("startGame", (lobbyCode) => {
+    startGame(lobbyCode);
+  });
+
+  // Other listeners...
+});
+
 
     const player = {
       id: socket.id,
