@@ -3,33 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Online Blackjack</title>
+  <title>Blackjack</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Online Blackjack</h1>
+  <h1>Blackjack</h1>
 
-  <section id="lobbySection">
-    <input type="text" id="nameInput" placeholder="Enter your name" />
-    <br /><br />
-    <button id="createLobbyBtn">Create Lobby</button>
-    <br /><br />
-    <input type="text" id="joinLobbyInput" placeholder="Enter Lobby Code" />
-    <button id="joinLobbyBtn">Join Lobby</button>
-    <p id="lobbyMessage"></p>
-    <ul id="playersUl"></ul>
-    <button id="startGameBtn" style="display: none;">Start Game</button>
-  </section>
-
-  <section id="gameSection" style="display: none;">
-    <div id="turnMessage"></div>
-    <div id="playersContainer"></div>
-    <div id="controls" style="display: none;">
-      <button id="hitBtn">Hit</button>
-      <button id="standBtn">Stand</button>
+  <div id="game">
+    <div id="dealer">
+      <h2>Dealer</h2>
+      <div id="dealer-cards"></div>
     </div>
-    <div id="gameResult"></div>
-  </section>
+
+    <div id="player">
+      <h2>You</h2>
+      <div id="player-cards"></div>
+    </div>
+
+    <div id="controls">
+      <button id="hit-button">Hit</button>
+      <button id="stand-button">Stand</button>
+    </div>
+
+    <div id="messages"></div>
+  </div>
+
+  <!-- NEW: Replay button -->
+  <button id="replay-button" style="display: none;">Play Again</button>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="game.js"></script>
