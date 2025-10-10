@@ -184,4 +184,17 @@ hitBtn.onclick = () => {
 
 standBtn.onclick = () => {
   socket.emit("stand", { lobbyCode });
-};
+};// ✅ Replay button logic
+replayButton.addEventListener("click", () => {
+  replayButton.style.display = "none";
+
+  // Clear UI
+  playersContainer.innerHTML = "";
+  turnMessage.textContent = "";
+  gameResult.textContent = "";
+
+  if (lobbyCode) {
+    socket.emit("startGame", lobbyCode);
+  }
+});
+
