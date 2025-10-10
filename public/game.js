@@ -25,6 +25,8 @@ const controls = document.getElementById("controls");
 const hitBtn = document.getElementById("hitBtn");
 const standBtn = document.getElementById("standBtn");
 const gameResult = document.getElementById("gameResult");
+const replayButton = document.getElementById("replay-button");
+
 
 // === LOBBY CONTROLS ===
 
