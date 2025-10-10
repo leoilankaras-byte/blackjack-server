@@ -55,21 +55,6 @@ io.on("connection", (socket) => {
       currentPlayerIndex: 0,
       inGame: false,
     };
-    // existing logic...
-  });
-
-  socket.on("joinLobby", ({ code, name }) => {
-    // existing logic...
-  });
-
-  // Add this listener here:
-  socket.on("startGame", (lobbyCode) => {
-    startGame(lobbyCode);
-  });
-
-  // Other listeners...
-});
-
 
     const player = {
       id: socket.id,
@@ -117,7 +102,6 @@ io.on("connection", (socket) => {
     lobby.deck = createDeck();
     lobby.currentPlayerIndex = 0;
 
-    // Deal 2 cards to each player
     for (const player of lobby.players) {
       player.cards = [lobby.deck.pop(), lobby.deck.pop()];
       player.isStanding = false;
@@ -161,7 +145,6 @@ io.on("connection", (socket) => {
     if (!player || player.id !== socket.id) return;
 
     player.isStanding = true;
-
     advanceTurn(lobbyCode);
     sendGameState(lobbyCode);
   });
@@ -175,7 +158,6 @@ io.on("connection", (socket) => {
         lobby.players.splice(index, 1);
         io.to(code).emit("updatePlayers", lobby.players);
 
-        // If host left or no players, destroy the lobby
         if (lobby.players.length === 0 || lobby.hostId === socket.id) {
           delete lobbies[code];
         }
@@ -183,8 +165,6 @@ io.on("connection", (socket) => {
     }
   });
 });
-
-// Utility Functions
 
 function calculateHandValue(cards) {
   let total = 0;
